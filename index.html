@@ -182,7 +182,7 @@
   </div>
 
   <script>
-    const API_URL = "http://localhost:3000/skills";
+    const API_URL = "https://notion-skill-backen.onrender.com/skills";
 
     const select = document.getElementById("skillSelect");
     const scoredEl = document.getElementById("scoredValue");
@@ -191,20 +191,31 @@
 
     let chart;
     let skillData = {};
-
+    
     async function loadData() {
-      const res = await fetch(API_URL);
-      skillData = await res.json();
+  try {
+    const res = await fetch(API_URL);
+    const data = await res.json();
 
-      select.innerHTML = '<option value=\"\">Select skill</option>';
+    console.log("Skill data from API:", data);
 
-      Object.keys(skillData).forEach(skill => {
-        const opt = document.createElement("option");
-        opt.value = skill;
-        opt.textContent = skill;
-        select.appendChild(opt);
-      });
-    }
+    skillData = data;
+
+    select.innerHTML = '<option value="">Select skill</option>';
+
+    Object.keys(skillData).forEach(skill => {
+      const option = document.createElement("option");
+      option.value = skill;
+      option.textContent = skill;
+      select.appendChild(option);
+    });
+
+  } catch (err) {
+    console.error("Error loading skills:", err);
+    select.innerHTML = '<option value="">Failed to load</option>';
+  }
+}
+
 
     select.addEventListener("change", () => {
       const skill = select.value;

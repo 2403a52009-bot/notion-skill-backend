@@ -1,8 +1,10 @@
+const cors = require("cors");
 const path = require("path");
 const fetch = require("node-fetch");
 const express = require("express");
 
 const app = express();
+app.use(cors());
 const PORT = process.env.PORT || 3000;
 
 const DATABASE_ID = "2e7f8b78034980df850dc0ded1ccdec7";
