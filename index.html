@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Notion Skill Analytics</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    :root {
+      --bg: #0b1020;
+      --panel: #111827;
+      --card: #0f172a;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --accent: #38bdf8;
+      --accent-soft: rgba(56,189,248,0.15);
+      --radius: 18px;
+    }
+
+    * {
+      box-sizing: border-box;
+      font-family: Inter, system-ui, -apple-system, sans-serif;
+    }
+
+    body {
+      margin: 0;
+      background: radial-gradient(1200px 600px at top, #0b1535, var(--bg));
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      padding: 40px 16px;
+    }
+
+    .app {
+      width: 100%;
+      max-width: 920px;
+    }
+
+    header {
+      margin-bottom: 28px;
+    }
+
+    h1 {
+      font-size: 2.2rem;
+      font-weight: 700;
+      margin: 0;
+      letter-spacing: -0.02em;
+    }
+
+    p.subtitle {
+      margin: 8px 0 0;
+      color: var(--muted);
+      max-width: 520px;
+    }
+
+    .card {
+      background: linear-gradient(
+        180deg,
+        rgba(255,255,255,0.03),
+        rgba(255,255,255,0.01)
+      );
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: var(--radius);
+      padding: 22px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.35);
+    }
+
+    .controls {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+    }
+
+    select {
+      background: var(--panel);
+      color: var(--text);
+      border: 1px solid rgba(255,255,255,0.1);
+      padding: 10px 14px;
+      border-radius: 12px;
+      font-size: 0.95rem;
+      outline: none;
+      cursor: pointer;
+    }
+
+    select:hover {
+      border-color: var(--accent);
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .stat {
+      background: var(--card);
+      border-radius: 14px;
+      padding: 16px;
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .stat span {
+      display: block;
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    .stat strong {
+      font-size: 1.6rem;
+      font-weight: 700;
+    }
+
+    .chart-wrap {
+      background: var(--card);
+      border-radius: 16px;
+      padding: 20px;
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    footer {
+      margin-top: 28px;
+      color: var(--muted);
+      font-size: 0.8rem;
+      text-align: center;
+    }
+
+    footer span {
+      color: var(--accent);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="app">
+    <header>
+      <h1>Skill Performance</h1>
+      <p class="subtitle">
+        Live analytics pulled directly from your Notion database.
+        Clean. Focused. No manual exports.
+      </p>
+    </header>
+
+    <div class="card">
+      <div class="controls">
+        <label for="skillSelect">Select Skill</label>
+        <select id="skillSelect">
+          <option value="">Loading…</option>
+        </select>
+      </div>
+
+      <div class="stats">
+        <div class="stat">
+          <span>Scored</span>
+          <strong id="scoredValue">–</strong>
+        </div>
+        <div class="stat">
+          <span>Full Marks</span>
+          <strong id="fullValue">–</strong>
+        </div>
+        <div class="stat">
+          <span>Performance</span>
+          <strong id="percentValue">–</strong>
+        </div>
+      </div>
+
+      <div class="chart-wrap">
+        <canvas id="skillChart" height="120"></canvas>
+      </div>
+    </div>
+
+    <footer>
+      powered by <span>Notion API</span> · built for focused learning
+    </footer>
+  </div>
+
+  <script>
+    const API_URL = "http://localhost:3000/skills";
+
+    const select = document.getElementById("skillSelect");
+    const scoredEl = document.getElementById("scoredValue");
+    const fullEl = document.getElementById("fullValue");
+    const percentEl = document.getElementById("percentValue");
+
+    let chart;
+    let skillData = {};
+
+    async function loadData() {
+      const res = await fetch(API_URL);
+      skillData = await res.json();
+
+      select.innerHTML = '<option value=\"\">Select skill</option>';
+
+      Object.keys(skillData).forEach(skill => {
+        const opt = document.createElement("option");
+        opt.value = skill;
+        opt.textContent = skill;
+        select.appendChild(opt);
+      });
+    }
+
+    select.addEventListener("change", () => {
+      const skill = select.value;
+      if (!skill) return;
+
+      const { scored, full } = skillData[skill];
+      const percent = ((scored / full) * 100).toFixed(1);
+
+      scoredEl.textContent = scored;
+      fullEl.textContent = full;
+      percentEl.textContent = percent + "%";
+
+      drawChart(scored, full, skill);
+    });
+
+    function drawChart(scored, full, skill) {
+      if (chart) chart.destroy();
+
+      chart = new Chart(
+        document.getElementById("skillChart"),
+        {
+          type: "bar",
+          data: {
+            labels: ["Scored", "Full Marks"],
+            datasets: [{
+              label: skill,
+              data: [scored, full],
+              borderRadius: 8,
+              backgroundColor: [
+                "rgba(56,189,248,0.9)",
+                "rgba(148,163,184,0.4)"
+              ]
+            }]
+          },
+          options: {
+            plugins: {
+              legend: { display: false }
+            },
+            scales: {
+              y: {
+                beginAtZero: true,
+                grid: {
+                  color: "rgba(255,255,255,0.05)"
+                }
+              },
+              x: {
+                grid: { display: false }
+              }
+            }
+          }
+        }
+      );
+    }
+
+    loadData();
+  </script>
+
+</body>
+</html>
